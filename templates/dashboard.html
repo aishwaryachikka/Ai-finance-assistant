@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="summary-cards">
+  <div class="card income"><span class="card-label">Total Income</span><span class="card-value" id="total-income">-</span></div>
+  <div class="card expense"><span class="card-label">Total Expenses</span><span class="card-value" id="total-expense">-</span></div>
+  <div class="card balance"><span class="card-label">Balance</span><span class="card-value" id="balance">-</span></div>
+</div>
+
+<div class="dashboard-grid">
+  <div class="panel">
+    <h2>Spending by Category</h2>
+    <canvas id="category-chart" width="400" height="300"></canvas>
+    <div id="category-empty" class="empty-state" style="display:none;">No expenses recorded yet.</div>
+  </div>
+  <div class="panel">
+    <h2>Monthly Trend</h2>
+    <canvas id="trend-chart" width="400" height="300"></canvas>
+    <div id="trend-empty" class="empty-state" style="display:none;">No data yet.</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>✨ AI Insights</h2>
+  <ul id="insights-list" class="insights-list"><li class="muted">Loading insights...</li></ul>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const rupee = (n) => 'Rs. ' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
+
+function drawBarChart(canvasId, labels, values, color) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!values.length) return;
+  const max = Math.max(...values, 1);
+  const padding = 40;
+  const chartW = canvas.width - padding * 2;
+  const chartH = canvas.height - padding * 2;
+  const barW = chartW / values.length * 0.6;
+  const gap = chartW / values.length;
+
+  ctx.strokeStyle = '#ccc';
+  ctx.beginPath();
+  ctx.moveTo(padding, padding);
+  ctx.lineTo(padding, canvas.height - padding);
+  ctx.lineTo(canvas.width - padding, canvas.height - padding);
+  ctx.stroke();
+
+  values.forEach((v, i) => {
+    const barH = (v / max) * chartH;
+    const x = padding + i * gap + (gap - barW) / 2;
+    const y = canvas.height - padding - barH;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = '#333';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + barW / 2, canvas.height - padding + 15);
+    ctx.fillText(Math.round(v), x + barW / 2, y - 5);
+  });
+}
+
+async function loadDashboard() {
+  const res = await fetch('/dashboard');
+  const data = await res.json();
+
+  document.getElementById('total-income').textContent = rupee(data.total_income);
+  document.getElementById('total-expense').textContent = rupee(data.total_expense);
+  document.getElementById('balance').textContent = rupee(data.balance);
+
+  const cats = data.category_breakdown;
+  if (cats.length) {
+    drawBarChart('category-chart', cats.map(c => c.category), cats.map(c => c.total), '#5b8def');
+  } else {
+    document.getElementById('category-empty').style.display = 'block';
+  }
+
+  const trend = data.monthly_trend;
+  if (trend.length) {
+    drawBarChart('trend-chart', trend.map(t => t.month), trend.map(t => t.expense), '#e57373');
+  } else {
+    document.getElementById('trend-empty').style.display = 'block';
+  }
+}
+
+async function loadInsights() {
+  const res = await fetch('/insights');
+  const insights = await res.json();
+  const list = document.getElementById('insights-list');
+  list.innerHTML = '';
+  insights.forEach(ins => {
+    const li = document.createElement('li');
+    li.className = 'insight-' + ins.type;
+    li.textContent = ins.text;
+    list.appendChild(li);
+  });
+}
+
+loadDashboard();
+loadInsights();
+</script>
+{% endblock %}

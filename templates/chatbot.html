@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Finance Chatbot{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+
+    <h1>🤖 Finance Assistant</h1>
+
+    <p>
+        Ask me about transactions, budgets, categories,
+        dashboard and financial insights.
+    </p>
+
+    <div id="chat-box" class="chat-box">
+
+        <div class="bot-message">
+            Hello! 👋 I'm your Finance Assistant.
+            How can I help you?
+        </div>
+
+    </div>
+
+    <div class="chat-input">
+
+        <input
+            type="text"
+            id="user-message"
+            placeholder="Ask something..."
+        >
+
+        <button
+            type="button"
+            id="send-btn"
+            class="primary-btn"
+        >
+            Send
+        </button>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+const sendButton = document.getElementById("send-btn");
+const input = document.getElementById("user-message");
+const chatBox = document.getElementById("chat-box");
+
+
+sendButton.addEventListener("click", sendMessage);
+
+
+input.addEventListener("keypress", function(event) {
+
+    if (event.key === "Enter") {
+        sendMessage();
+    }
+
+});
+
+
+async function sendMessage() {
+
+    const message = input.value.trim();
+
+    if (!message) {
+        return;
+    }
+
+
+    // Display user's message
+    const userMessage = document.createElement("div");
+
+    userMessage.className = "user-message";
+
+    userMessage.textContent = message;
+
+    chatBox.appendChild(userMessage);
+
+
+    input.value = "";
+
+
+    try {
+
+        const response = await fetch("/chatbot", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                message: message
+            })
+
+        });
+
+
+        const data = await response.json();
+
+
+        // Display bot response
+        const botMessage = document.createElement("div");
+
+        botMessage.className = "bot-message";
+
+        botMessage.textContent = data.reply;
+
+        chatBox.appendChild(botMessage);
+
+
+    } catch (error) {
+
+        const errorMessage = document.createElement("div");
+
+        errorMessage.className = "bot-message";
+
+        errorMessage.textContent =
+            "Sorry, I could not connect to the chatbot.";
+
+        chatBox.appendChild(errorMessage);
+
+    }
+
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+}
+
+</script>
+
+{% endblock %}

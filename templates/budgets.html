@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Budgets{% endblock %}
+{% block content %}
+<h1>Budgets</h1>
+
+<div class="panel">
+  <h2>Set a Budget</h2>
+  <form id="budget-form" class="txn-form">
+    <div class="form-row">
+      <div>
+        <label>Month</label>
+        <input type="month" id="month" value="{{ current_month }}">
+      </div>
+      <div>
+        <label>Category (optional)</label>
+        <select id="category">
+          <option value="">Overall budget</option>
+          {% for c in categories %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Limit Amount</label>
+        <input type="number" id="limit_amount" step="0.01" min="0.01" required>
+      </div>
+    </div>
+    <button type="submit" class="primary-btn">Save Budget</button>
+  </form>
+</div>
+
+<div class="panel">
+  <h2>This Month's Budgets</h2>
+  <div id="budgets-list"></div>
+  <div id="budgets-empty" class="empty-state" style="display:none;">No budgets set for this month yet.</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const rupee = (n) => 'Rs. ' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
+
+document.getElementById('budget-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    month: document.getElementById('month').value,
+    category: document.getElementById('category').value || null,
+    limit_amount: document.getElementById('limit_amount').value
+  };
+  const res = await fetch('/budgets', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) {
+    document.getElementById('budget-form').reset();
+    document.getElementById('month').value = "{{ current_month }}";
+    loadBudgets();
+  } else {
+    const data = await res.json();
+    alert(data.error || 'Failed to save budget');
+  }
+});
+
+async function loadBudgets() {
+  const month = document.getElementById('month').value || "{{ current_month }}";
+  const res = await fetch(`/budgets?month=${month}`);
+  const budgets = await res.json();
+  const list = document.getElementById('budgets-list');
+  list.innerHTML = '';
+  document.getElementById('budgets-empty').style.display = budgets.length ? 'none' : 'block';
+
+  budgets.forEach(b => {
+    const div = document.createElement('div');
+    div.className = `budget-item budget-${b.status}`;
+    const pct = Math.min(b.usage_pct, 100);
+    div.innerHTML = `
+      <div class="budget-header">
+        <strong>${b.category || 'Overall'}</strong>
+        <span>${rupee(b.spent)} / ${rupee(b.limit_amount)} (${b.usage_pct}%)</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${b.status === 'over' ? '<div class="warning-text">⚠ Over budget</div>' :
+        b.status === 'warning' ? '<div class="warning-text">⚠ Approaching limit</div>' : ''}
+    `;
+    list.appendChild(div);
+  });
+}
+
+loadBudgets();
+</script>
+{% endblock %}
